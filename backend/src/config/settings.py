@@ -16,8 +16,15 @@ class Settings(BaseSettings):
     # MongoDB
     MONGODB_URI: str = os.environ.get("MONGODB_URI", "mongodb://localhost:27017")
     DATABASE_NAME: str = os.environ.get("DATABASE_NAME", "mydatabase")
-    COLLECTION_NAME: str = os.environ.get("COLLECTION_NAME", "mycollection")
-    INDEX_NAME: str = os.environ.get("INDEX_NAME", "myindex")
+    
+    # Collections for different indexing strategies
+    VECTOR_STORE_COLLECTION_NAME: str = os.environ.get("VECTOR_STORE_COLLECTION_NAME", "vector_store_docs")
+    SENTENCE_WINDOW_COLLECTION: str = os.environ.get("SENTENCE_WINDOW_COLLECTION", "sentence_window_docs")
+    
+    # Vector Search Indexes
+    VECTOR_STORE_INDEX: str = os.getenv("VECTOR_STORE_INDEX", "vector_store_index")
+    SENTENCE_WINDOW_INDEX: str = os.getenv("SENTENCE_WINDOW_INDEX", "sentence_window_index")
+    
 
     # File upload
     UPLOAD_DIR: str = os.environ.get("UPLOAD_DIR", "./uploads")
@@ -30,6 +37,7 @@ class Settings(BaseSettings):
     # Document processing
     CHUNK_SIZE: int = int(os.environ.get("CHUNK_SIZE", 1024))
     CHUNK_OVERLAP: int = int(os.environ.get("CHUNK_OVERLAP", 200))
+    SENTENCE_WINDOW_SIZE: int = int(os.getenv("SENTENCE_WINDOW_SIZE", 3))
 
     class Config:
         env_file = ".env"

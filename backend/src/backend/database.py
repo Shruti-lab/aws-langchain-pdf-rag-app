@@ -13,17 +13,24 @@ class DatabaseManager:
     def __initi__(self):
         self.client = None
         self.database = None
-        self.collection = None
-        self.vector_store = None
-        self.index = None
+
+        # Collections for different strategies
+        self.vector_store_collection = None
+        self.sentence_window_collection = None
+        self.metadata_collection = None
+        
 
     async def connect(self):
         """Connect to MongoDB and initialize the vector store and index."""
         try:
             self.client = motor.motor_asyncio.AsyncIOMotorClient(settings.MONGODB_URI)
             self.database = self.client[settings.DATABASE_NAME]
-            self.collection = self.database[settings.COLLECTION_NAME]
-            logger.info("Connected to MongoDB")
+            
+            # Initialize collections
+            self.vector_store_collection = self.database[settings.VECTOR_STORE_COLLECTION]
+            self.sentence_window_collection = self.database[settings.SENTENCE_WINDOW_COLLECTION]
+            
+            logger.info("Connected to MongoDB collections")
 
 
             # To Test connection
