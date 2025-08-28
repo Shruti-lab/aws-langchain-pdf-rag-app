@@ -1,7 +1,15 @@
 from typing import Dict, Any, List, Optional
-from trulens_eval import Tru, TruLlama
-from trulens_eval.feedback import Feedback, Groundedness
-from trulens_eval.feedback.provider.openai import OpenAI as OpenAIProvider
+from trulens_eval import (
+    Feedback,
+    TruLlama,
+    Tru
+)
+from trulens_eval.feedback import Groundedness
+
+# from trulens_eval.feedback import Feedback, Groundedness
+from trulens_eval.feedback.provider.openai import OpenAI
+from trulens_eval.feedback.provider.litellm import LiteLLM
+
 from trulens_eval.app import App
 from rag.indexing import indexing_manager
 from config.settings import settings
@@ -14,37 +22,49 @@ class TruLensEvaluator:
     
     def __init__(self):
         self.tru = Tru()
-        self.tru.reset_database()
-        self.openai_provider = OpenAIProvider(api_key=settings.OPENAI_API_KEY)
+        self.provider = None
+        # self.openai = OpenAI(api_key=settings.OPENAI_API_KEY)
+        # self.litellm = LiteLLM(model_engine="gemini-pro", api_key=settings.LITELLM_API_KEY)
         self.feedback_functions = self._create_feedback_functions()
         self.recorders = {}
     
+    def initialize_provider(self, provider: str = "litellm"):
+        """Initialize feedback provider"""
+        if provider == "litellm":
+            self.provider = LiteLLM(model_engine="gemini-pro", api_key=settings.LITELLM_API_KEY)
+        elif provider == "openai":
+            self.provider = OpenAI(api_key=settings.OPENAI_API_KEY)
+        else:
+            raise ValueError(f"Unsupported provider: {provider}")
+        
+        # self.openai_provider = OpenAI(api_key=settings.OPENAI_API_KEY)
+
     def _create_feedback_functions(self) -> List[Feedback]:
         """Create feedback functions for evaluation"""
         # Groundedness feedback
-        grounded = Groundedness(groundedness_provider=self.openai_provider)
-        f_groundedness = (
+        grounded = Groundedness(groundedness_provider=self.provider)
+        qa_groundedness = (
             Feedback(grounded.groundedness_measure_with_cot_reasons, name="Groundedness")
-            .on(TruLlama.select_source_nodes().node.text.collect())
+            .on(TruLlama.select_source_nodes().node.text)
             .on_output()
             .aggregate(grounded.grounded_statements_aggregator)
         )
         
         # Answer relevance feedback
-        f_answer_relevance = (
-            Feedback(self.openai_provider.relevance_with_cot_reasons, name="Answer Relevance")
+        qa_relevance = (
+            Feedback(self.provider.relevance_with_cot_reasons, name="Answer Relevance")
             .on_input_output()
         )
         
         # Context relevance feedback
-        f_context_relevance = (
-            Feedback(self.openai_provider.context_relevance_with_cot_reasons, name="Context Relevance")
+        qs_relevance = (
+            Feedback(self.provider.relevance_with_cot_reasons, name="Context Relevance")
             .on_input()
             .on(TruLlama.select_source_nodes().node.text)
             .aggregate(lambda x: sum(x) / len(x))
         )
         
-        return [f_groundedness, f_answer_relevance, f_context_relevance]
+        return [qa_groundedness, qa_relevance, qs_relevance]
     
     def create_recorder(self, strategy_name: str) -> TruLlama:
         """Create TruLens recorder for a specific indexing strategy"""
@@ -53,20 +73,21 @@ class TruLensEvaluator:
             
             app_id = f"{strategy_name}_query_engine"
             
-            recorder = TruLlama(
+            tru_recorder = TruLlama(
                 query_engine,
                 app_id=app_id,
                 feedbacks=self.feedback_functions
             )
             
-            self.recorders[strategy_name] = recorder
+            self.recorders[strategy_name] = tru_recorder
             logger.info(f"Created TruLens recorder for {strategy_name} strategy")
             
-            return recorder
+            return tru_recorder
             
         except Exception as e:
             logger.error(f"Error creating TruLens recorder: {str(e)}")
             raise
+
     
     async def evaluate_query(self, query: str, strategy_name: str) -> Dict[str, Any]:
         """Evaluate a single query with TruLens"""
@@ -108,6 +129,7 @@ class TruLensEvaluator:
         except Exception as e:
             logger.error(f"Error evaluating query: {str(e)}")
             raise
+
     
     async def compare_strategies(self, query: str, strategies: List[str]) -> Dict[str, Any]:
         """Compare multiple indexing strategies for the same query"""
@@ -137,50 +159,50 @@ class TruLensEvaluator:
             logger.error(f"Error comparing strategies: {str(e)}")
             raise
     
-    def _create_comparison_summary(self, results: Dict[str, Any]) -> Dict[str, Any]:
-        """Create summary comparing different strategies"""
-        summary = {
-            "best_groundedness": {"strategy": None, "score": -1},
-            "best_answer_relevance": {"strategy": None, "score": -1},
-            "best_context_relevance": {"strategy": None, "score": -1}
-        }
+    # def _create_comparison_summary(self, results: Dict[str, Any]) -> Dict[str, Any]:
+    #     """Create summary comparing different strategies"""
+    #     summary = {
+    #         "best_groundedness": {"strategy": None, "score": -1},
+    #         "best_answer_relevance": {"strategy": None, "score": -1},
+    #         "best_context_relevance": {"strategy": None, "score": -1}
+    #     }
         
-        for strategy, result in results.items():
-            metrics = result.get("metrics", {})
+    #     for strategy, result in results.items():
+    #         metrics = result.get("metrics", {})
             
-            # Check Groundedness
-            if "Groundedness" in metrics:
-                score = metrics["Groundedness"].get("score", 0)
-                if score > summary["best_groundedness"]["score"]:
-                    summary["best_groundedness"] = {"strategy": strategy, "score": score}
+    #         # Check Groundedness
+    #         if "Groundedness" in metrics:
+    #             score = metrics["Groundedness"].get("score", 0)
+    #             if score > summary["best_groundedness"]["score"]:
+    #                 summary["best_groundedness"] = {"strategy": strategy, "score": score}
             
-            # Check Answer Relevance
-            if "Answer Relevance" in metrics:
-                score = metrics["Answer Relevance"].get("score", 0)
-                if score > summary["best_answer_relevance"]["score"]:
-                    summary["best_answer_relevance"] = {"strategy": strategy, "score": score}
+    #         # Check Answer Relevance
+    #         if "Answer Relevance" in metrics:
+    #             score = metrics["Answer Relevance"].get("score", 0)
+    #             if score > summary["best_answer_relevance"]["score"]:
+    #                 summary["best_answer_relevance"] = {"strategy": strategy, "score": score}
             
-            # Check Context Relevance
-            if "Context Relevance" in metrics:
-                score = metrics["Context Relevance"].get("score", 0)
-                if score > summary["best_context_relevance"]["score"]:
-                    summary["best_context_relevance"] = {"strategy": strategy, "score": score}
+    #         # Check Context Relevance
+    #         if "Context Relevance" in metrics:
+    #             score = metrics["Context Relevance"].get("score", 0)
+    #             if score > summary["best_context_relevance"]["score"]:
+    #                 summary["best_context_relevance"] = {"strategy": strategy, "score": score}
         
-        return summary
+    #     return summary
     
     def reset_database(self):
         """Reset TruLens database"""
         self.tru.reset_database()
         logger.info("TruLens database reset")
     
-    def get_leaderboard(self) -> Dict[str, Any]:
-        """Get TruLens leaderboard data"""
-        try:
-            leaderboard = self.tru.get_leaderboard()
-            return leaderboard.to_dict() if hasattr(leaderboard, 'to_dict') else {}
-        except Exception as e:
-            logger.error(f"Error getting leaderboard: {str(e)}")
-            return {}
+    # def get_leaderboard(self) -> Dict[str, Any]:
+    #     """Get TruLens leaderboard data"""
+    #     try:
+    #         leaderboard = self.tru.get_leaderboard()
+    #         return leaderboard.to_dict() if hasattr(leaderboard, 'to_dict') else {}
+    #     except Exception as e:
+    #         logger.error(f"Error getting leaderboard: {str(e)}")
+    #         return {}
 
 # Global evaluator instance
 trulens_evaluator = TruLensEvaluator()

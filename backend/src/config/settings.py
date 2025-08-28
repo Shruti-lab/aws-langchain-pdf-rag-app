@@ -12,6 +12,7 @@ class Settings(BaseSettings):
 
     # OpenAI
     OPENAI_API_KEY: str = os.environ.get("OPENAI_API_KEY", "your_openai_api_key_here")
+    LITELLM_API_KEY: str = os.environ.get("LITELLM_API_KEY", "your_litellm_api_key_here")   
 
     # MongoDB
     MONGODB_URI: str = os.environ.get("MONGODB_URI", "mongodb://localhost:27017")
