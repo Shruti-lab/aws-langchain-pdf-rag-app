@@ -11,8 +11,10 @@ class Settings(BaseSettings):
     DEBUG: bool = os.environ.get("DEBUG", "True") == "True"
 
     # OpenAI
-    OPENAI_API_KEY: str = os.environ.get("OPENAI_API_KEY", "your_openai_api_key_here")
-    LITELLM_API_KEY: str = os.environ.get("LITELLM_API_KEY", "your_litellm_api_key_here")   
+    # OPENAI_API_KEY: str = os.environ.get("OPENAI_API_KEY", "your_openai_api_key_here")
+    # LITELLM_API_KEY: str = os.environ.get("LITELLM_API_KEY", "your_litellm_api_key_here")   
+    GEMINI_API_KEY: str = os.environ.get("GEMINI_API_KEY", "")
+    GEMINI_MODEL: str = os.environ.get("GEMINI_MODEL", "gemini-1.5-flash-latest")
 
     # MongoDB
     MONGODB_URI: str = os.environ.get("MONGODB_URI", "mongodb://localhost:27017")

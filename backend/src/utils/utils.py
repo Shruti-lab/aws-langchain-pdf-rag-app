@@ -4,6 +4,8 @@ from llama_index.core.node_parser import SentenceSplitter, SentenceWindowNodePar
 from llama_index.core.postprocessor import MetadataReplacementPostProcessor
 from llama_index.llms.openai import OpenAI
 from llama_index.embeddings.openai import OpenAIEmbedding
+from llama_index.embeddings.gemini import GeminiEmbedding
+from llama_index.llms.gemini import Gemini
 from llama_index.core import Document
 from backend.database import db_manager
 from config.settings import settings
@@ -15,14 +17,24 @@ class IndexingStrategy:
     """Base class for different indexing strategies"""
     
     def __init__(self):
-        self.llm = OpenAI(
-            model="gpt-3.5-turbo", 
-            temperature=0,
-            api_key=settings.OPENAI_API_KEY
+        # self.llm = OpenAI(
+        #     model="gpt-3.5-turbo", 
+        #     temperature=0.1,
+        #     api_key=settings.OPENAI_API_KEY
+        # )
+        self.llm = Gemini(
+            api_key=settings.GEMINI_API_KEY,
+            model=settings.GEMINI_MODEL,
+            temperature=0.1
         )
-        self.embed_model = OpenAIEmbedding(
-            model="text-embedding-ada-002",
-            api_key=settings.OPENAI_API_KEY
+        # self.embed_model = OpenAIEmbedding(
+        #     model="text-embedding-ada-002",
+        #     api_key=settings.OPENAI_API_KEY
+        # )
+
+        self.embed_model = GeminiEmbedding(
+            api_key=settings.GEMINI_API_KEY,
+            model_name="models/embedding-001"
         )
         self.service_context = ServiceContext.from_defaults(
             llm=self.llm,

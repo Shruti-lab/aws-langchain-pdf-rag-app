@@ -9,6 +9,7 @@ from trulens_eval.feedback import Groundedness
 # from trulens_eval.feedback import Feedback, Groundedness
 from trulens_eval.feedback.provider.openai import OpenAI
 from trulens_eval.feedback.provider.litellm import LiteLLM
+from trulens_eval.feedback.provider.google import Gemini
 
 from trulens_eval.app import App
 from rag.indexing import indexing_manager
@@ -25,17 +26,31 @@ class TruLensEvaluator:
         self.provider = None
         # self.openai = OpenAI(api_key=settings.OPENAI_API_KEY)
         # self.litellm = LiteLLM(model_engine="gemini-pro", api_key=settings.LITELLM_API_KEY)
-        self.feedback_functions = self._create_feedback_functions()
+        self.initialize_provider("gemini")
+        # self.feedback_functions = self._create_feedback_functions()
         self.recorders = {}
     
-    def initialize_provider(self, provider: str = "litellm"):
+    def initialize_provider(self, provider: str = "gemini"):
         """Initialize feedback provider"""
-        if provider == "litellm":
-            self.provider = LiteLLM(model_engine="gemini-pro", api_key=settings.LITELLM_API_KEY)
-        elif provider == "openai":
-            self.provider = OpenAI(api_key=settings.OPENAI_API_KEY)
-        else:
-            raise ValueError(f"Unsupported provider: {provider}")
+        try: 
+            if provider == "litellm":
+                self.provider = LiteLLM(model_engine="gemini-pro", api_key=settings.LITELLM_API_KEY)
+            elif provider == "openai":
+                self.provider = OpenAI(api_key=settings.OPENAI_API_KEY)
+            elif provider == "gemini":
+                    # Direct Gemini integration if TruLens adds it
+                    self.provider = Gemini(
+                        api_key=settings.GEMINI_API_KEY,
+                        model=settings.GEMINI_MODEL
+                    )
+                    logger.info(f"Initialized Gemini provider with model: {settings.GEMINI_MODEL}")
+            else:
+                raise ValueError(f"Unsupported provider: {provider}")
+        # Create feedback functions after provider is initialized
+            self.feedback_functions = self._create_feedback_functions()
+        except Exception as e:
+            logger.error(f"Error initializing provider {provider}: {str(e)}")
+            raise
         
         # self.openai_provider = OpenAI(api_key=settings.OPENAI_API_KEY)
 
